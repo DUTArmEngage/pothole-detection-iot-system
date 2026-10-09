@@ -1,0 +1,35 @@
+# tickets.toml — the initiative's epics in build order. tickets.py reads it.
+
+[[epic]]
+id = 1
+slug = "epic-location-on-the-dashscreen"
+title = "Location on the Dashscreen"
+covers = ["CAP-3", "CAP-4", "CAP-5", "CAP-8"]
+
+[[epic]]
+id = 2
+slug = "epic-live-imu-on-both-displays"
+title = "Live IMU on both displays"
+covers = ["CAP-1", "CAP-4", "CAP-8"]
+after = [{ epic = 1, needs = "shared schemas and config, the Dashscreen shell, NTP-synced clocks" }]
+
+[[epic]]
+id = 3
+slug = "epic-pothole-detection-on-road-video"
+title = "Pothole detection on the road video"
+covers = ["CAP-2", "CAP-6"]
+after = [
+  { epic = 2, needs = "the IMU window, pi_client, the Dashboard shell and fake_imu" },
+  { epic = 1, needs = "NTP-synced clocks and the shared payload module" },
+]
+
+[[epic]]
+id = 4
+slug = "epic-presentation-ready-end-to-end-run"
+title = "Presentation-ready end-to-end run"
+covers = ["CAP-7"]
+after = [
+  { epic = 3, needs = "the annotated video panel" },
+  { epic = 1, needs = "the /gps/current feed and the map canvas" },
+  { epic = 2, needs = "the IMU panel" },
+]
