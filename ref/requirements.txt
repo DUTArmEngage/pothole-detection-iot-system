@@ -1,0 +1,12 @@
+# Core — required everywhere
+numpy>=1.24
+opencv-python-headless>=4.8
+
+# Raspberry Pi runtime
+tflite-runtime>=2.14 ; platform_machine=="aarch64"
+paho-mqtt>=1.6
+psutil>=5.9
+
+# Development machine / training (not needed on the Pi)
+# ultralytics>=8.1
+# torch>=2.0

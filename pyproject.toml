@@ -1,0 +1,19 @@
+[project]
+name = "m"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "sipho-mokoena", email = "siphowilliammokoena@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "ultralytics>=8.4.174",
+]
+
+[project.scripts]
+m = "m:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"

@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" font-family="Arial, Helvetica, sans-serif">
+<defs><marker id="a" markerWidth="10" markerHeight="7" refX="9.5" refY="3.5" orient="auto">
+<polygon points="0 0, 10 3.5, 0 7" fill="#000"/></marker></defs>
+<rect x="0" y="0" width="900" height="600" fill="#fff"/>
+
+<text x="450" y="26" text-anchor="middle" font-size="13" font-weight="bold">Hardware-in-the-loop bench configuration</text>
+<line x1="230" y1="36" x2="670" y2="36" stroke="#000" stroke-width="1"/>
+
+<!-- REPLACED ENVIRONMENT -->
+<rect x="20" y="56" width="228" height="300" fill="none" stroke="#000" stroke-width="1" stroke-dasharray="6,4"/>
+<rect x="20" y="56" width="228" height="24" fill="#D4D4D4" stroke="#000" stroke-width="1"/>
+<text x="134" y="73" text-anchor="middle" font-size="10.5" font-weight="bold">REPLAYED ENVIRONMENT</text>
+<text x="134" y="94" text-anchor="middle" font-size="8.5" font-style="italic">substitutes for the vehicle</text>
+
+<rect x="38" y="104" width="192" height="60" fill="#EDEDED" stroke="#000" stroke-width="1.2"/>
+<text x="134" y="123" text-anchor="middle" font-size="10" font-weight="bold">Video / image sequence</text>
+<text x="134" y="139" text-anchor="middle" font-size="8.5">stands in for the camera</text>
+<text x="134" y="153" text-anchor="middle" font-size="8.5">road imagery, 10 fps</text>
+
+<rect x="38" y="176" width="192" height="60" fill="#EDEDED" stroke="#000" stroke-width="1.2"/>
+<text x="134" y="195" text-anchor="middle" font-size="10" font-weight="bold">GPX track</text>
+<text x="134" y="211" text-anchor="middle" font-size="8.5">stands in for GNSS</text>
+<text x="134" y="225" text-anchor="middle" font-size="8.5">Durban route, 1 Hz, ±2.5 m noise</text>
+
+<rect x="38" y="248" width="192" height="60" fill="#EDEDED" stroke="#000" stroke-width="1.2"/>
+<text x="134" y="267" text-anchor="middle" font-size="10" font-weight="bold">IMU trace</text>
+<text x="134" y="283" text-anchor="middle" font-size="8.5">stands in for accelerometer</text>
+<text x="134" y="297" text-anchor="middle" font-size="8.5">100 Hz, damped impact model</text>
+
+<rect x="38" y="318" width="192" height="28" fill="#FFFFFF" stroke="#000" stroke-width="0.8"/>
+<text x="134" y="336" text-anchor="middle" font-size="9" font-style="italic">synchronised virtual clock</text>
+
+<line x1="248" y1="200" x2="288" y2="200" stroke="#000" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="268" y="192" text-anchor="middle" font-size="8">replay</text>
+
+<!-- SYSTEM UNDER TEST -->
+<rect x="290" y="56" width="290" height="380" fill="none" stroke="#000" stroke-width="2"/>
+<rect x="290" y="56" width="290" height="24" fill="#000"/>
+<text x="435" y="73" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#fff">SYSTEM UNDER TEST — RASPBERRY PI</text>
+<text x="435" y="94" text-anchor="middle" font-size="8.5" font-style="italic">real deployment code, unmodified</text>
+
+<rect x="308" y="104" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="124" text-anchor="middle" font-size="10" font-weight="bold">Sensor manager</text>
+ <text x="435" y="140" text-anchor="middle" font-size="8.5">stream sync · IMU gating</text>
+ <line x1="435" y1="152" x2="435" y2="162" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/><rect x="308" y="162" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="182" text-anchor="middle" font-size="10" font-weight="bold">Detection model</text>
+ <text x="435" y="198" text-anchor="middle" font-size="8.5">YOLOv8n INT8 TFLite</text>
+ <line x1="435" y1="210" x2="435" y2="220" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/><rect x="308" y="220" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="240" text-anchor="middle" font-size="10" font-weight="bold">Fusion logic</text>
+ <text x="435" y="256" text-anchor="middle" font-size="8.5">inertial corroboration</text>
+ <line x1="435" y1="268" x2="435" y2="278" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/><rect x="308" y="278" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="298" text-anchor="middle" font-size="10" font-weight="bold">Severity classifier</text>
+ <text x="435" y="314" text-anchor="middle" font-size="8.5">size · confidence · impact</text>
+ <line x1="435" y1="326" x2="435" y2="336" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/><rect x="308" y="336" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="356" text-anchor="middle" font-size="10" font-weight="bold">Event buffer</text>
+ <text x="435" y="372" text-anchor="middle" font-size="8.5">SQLite store-and-forward</text>
+ <line x1="435" y1="384" x2="435" y2="394" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/><rect x="308" y="394" width="254" height="48" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+ <text x="435" y="414" text-anchor="middle" font-size="10" font-weight="bold">MQTT client</text>
+ <text x="435" y="430" text-anchor="middle" font-size="8.5">QoS 1 · ack-gated release</text>
+ 
+
+<line x1="580" y1="418" x2="622" y2="418" stroke="#000" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="601" y="410" text-anchor="middle" font-size="8">MQTT</text>
+
+<!-- RECEIVING SIDE -->
+<rect x="624" y="56" width="256" height="380" fill="none" stroke="#000" stroke-width="1.6"/>
+<rect x="624" y="56" width="256" height="24" fill="#D4D4D4" stroke="#000" stroke-width="1.6"/>
+<text x="752" y="73" text-anchor="middle" font-size="10.5" font-weight="bold">RECEIVING PLATFORM</text>
+<text x="752" y="94" text-anchor="middle" font-size="8.5" font-style="italic">laptop or second Pi</text>
+
+<rect x="642" y="104" width="220" height="54" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+<text x="752" y="124" text-anchor="middle" font-size="10" font-weight="bold">Mosquitto broker</text>
+<text x="752" y="140" text-anchor="middle" font-size="8.5">TLS · client certificates</text>
+<line x1="752" y1="158" x2="752" y2="172" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/>
+
+<rect x="642" y="174" width="220" height="54" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+<text x="752" y="194" text-anchor="middle" font-size="10" font-weight="bold">Road-condition database</text>
+<text x="752" y="210" text-anchor="middle" font-size="8.5">spatial aggregation</text>
+<line x1="752" y1="228" x2="752" y2="242" stroke="#000" stroke-width="1.2" marker-end="url(#a)"/>
+
+<rect x="642" y="244" width="220" height="70" fill="#FFFFFF" stroke="#000" stroke-width="1.2"/>
+<text x="752" y="264" text-anchor="middle" font-size="10" font-weight="bold">Geospatial dashboard</text>
+<text x="752" y="280" text-anchor="middle" font-size="8.5">live map · severity markers</text>
+<text x="752" y="294" text-anchor="middle" font-size="8.5">event feed · cluster view</text>
+<text x="752" y="307" text-anchor="middle" font-size="8.5">municipal + road-user views</text>
+
+<rect x="642" y="330" width="220" height="94" fill="#EDEDED" stroke="#000" stroke-width="1.2"/>
+<text x="752" y="349" text-anchor="middle" font-size="10" font-weight="bold">MEASUREMENT</text>
+<line x1="654" y1="355" x2="850" y2="355" stroke="#000" stroke-width="0.6"/>
+<text x="752" y="370" text-anchor="middle" font-size="8.5">latency · throughput · CPU · memory</text>
+<text x="752" y="384" text-anchor="middle" font-size="8.5">delivery rate · buffer recovery</text>
+<text x="752" y="398" text-anchor="middle" font-size="8.5">bandwidth · severity distribution</text>
+<text x="752" y="414" text-anchor="middle" font-size="8.5" font-style="italic">→ Chapter 4 tables</text>
+
+<!-- INSTRUMENTATION -->
+<rect x="290" y="452" width="590" height="60" fill="none" stroke="#000" stroke-width="1" stroke-dasharray="5,3"/>
+<text x="304" y="470" font-size="10" font-weight="bold">Physical instrumentation</text>
+<line x1="304" y1="476" x2="866" y2="476" stroke="#000" stroke-width="0.6"/>
+<text x="304" y="491" font-size="8.5">USB inline power meter on the Pi supply — records power draw (W) under sustained inference load</text>
+<text x="304" y="504" font-size="8.5">Network cable physically unplugged — triggers the offline recovery test of Section 4.5</text>
+
+<!-- CONFIGURATION LEGEND -->
+<rect x="20" y="376" width="228" height="136" fill="none" stroke="#000" stroke-width="1"/>
+<rect x="20" y="376" width="228" height="22" fill="#D4D4D4" stroke="#000" stroke-width="1"/>
+<text x="134" y="392" text-anchor="middle" font-size="10" font-weight="bold">EXPERIMENTAL CONFIGURATIONS</text>
+<text x="32" y="414" font-size="9" font-weight="bold">A</text>
+<text x="48" y="414" font-size="8.5">edge inference + fusion (treatment)</text>
+<text x="32" y="434" font-size="9" font-weight="bold">B</text>
+<text x="48" y="434" font-size="8.5">cloud-only, no local buffer</text>
+<text x="32" y="454" font-size="9" font-weight="bold">C</text>
+<text x="48" y="454" font-size="8.5">vision only, fusion disabled</text>
+<text x="32" y="478" font-size="8" font-style="italic">Identical replay input to all three,</text>
+<text x="32" y="490" font-size="8" font-style="italic">so differences are attributable to</text>
+<text x="32" y="502" font-size="8" font-style="italic">configuration. Paired t-test, α = 0.05.</text>
+
+<text x="450" y="540" text-anchor="middle" font-size="9" font-style="italic">The environment is simulated; the system under test is real. Only GNSS positional accuracy against</text>
+<text x="450" y="554" text-anchor="middle" font-size="9" font-style="italic">surveyed ground truth requires field work and is reported as a limitation.</text>
+</svg>
