@@ -2,7 +2,7 @@
 
 Reference implementation for the MIoT dissertation *An IoT-Driven Edge Computing
 Framework for Real-Time Pothole Detection and Infrastructure Mapping*
-(M.M.V. Mthembu, 21959204, Durban University of Technology).
+(Durban University of Technology).
 
 Detects road surface defects on a Raspberry Pi, corroborates each detection
 against inertial data, attaches a GNSS position, classifies severity, buffers
