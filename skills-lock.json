@@ -13,6 +13,12 @@
       "skillPath": "skills/bmad-build/SKILL.md",
       "computedHash": "c7246e441a679ccb5170b071c0e3a2a46a339c27451aa245e4ee2353b2b3c1d2"
     },
+    "bmad-spec": {
+      "source": "bmad-code-org/BMAD-METHOD",
+      "sourceType": "github",
+      "skillPath": "skills/bmad-spec/SKILL.md",
+      "computedHash": "34d90e1da85396ddfe4eb41aaf94e7b5fa24bc23f1edb9283bbedc02829940cf"
+    },
     "bmad-ticket": {
       "source": "bmad-code-org/BMAD-METHOD",
       "sourceType": "github",
