@@ -150,6 +150,39 @@ def annotate(image: np.ndarray, dets: List[Detection]) -> np.ndarray:
     return out
 
 
+# --- map events ---------------------------------------------------------------------
+
+SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
+EVENT_MERGE_S = 2.0
+
+
+class EventLog:
+    """One map event per pothole encounter: detections within EVENT_MERGE_S merge, keeping the worst severity.
+
+    The same pothole appears in many consecutive frames; plotting each would smear a pile of pins.
+    Only detections that carry a position become events.
+    """
+
+    def __init__(self, keep: int = 200):
+        self._events: Deque[dict] = deque(maxlen=keep)
+
+    def add(self, d: Detection) -> None:
+        if d.lat is None:
+            return
+        t = parse_ts(d.ts).timestamp()
+        if self._events and t - self._events[-1]["_t"] <= EVENT_MERGE_S:
+            e = self._events[-1]
+            e["_t"] = t
+            if SEVERITY_RANK[d.severity] > SEVERITY_RANK[e["severity"]]:
+                e["severity"] = d.severity
+            e["confidence"] = max(e["confidence"], d.confidence)
+            return
+        self._events.append({"_t": t, "ts": d.ts, "lat": d.lat, "lon": d.lon, "severity": d.severity, "confidence": d.confidence})
+
+    def list(self) -> List[dict]:
+        return [{k: v for k, v in e.items() if k != "_t"} for e in self._events]
+
+
 # --- pipeline ---------------------------------------------------------------------
 
 class DetectionPipeline:
@@ -167,6 +200,7 @@ class DetectionPipeline:
         self._jpeg: Optional[bytes] = None
         self._seq = 0
         self._recent: Deque[Detection] = deque(maxlen=recent)
+        self.events = EventLog()
         self._stop = threading.Event()
         self.fps = 0.0
         self.latency_ms = 0.0
@@ -223,6 +257,8 @@ class DetectionPipeline:
             if ok:
                 self._jpeg, self._seq = buf.tobytes(), self._seq + 1
             self._recent.extend(dets)
+            for d in dets:
+                self.events.add(d)
 
     def _run(self) -> None:
         # Inference runs on every frame straight away. Only the grading step waits for IMU
@@ -257,4 +293,5 @@ class DetectionPipeline:
             "fps": round(self.fps, 1),
             "latency_ms": round(self.latency_ms, 1),
             "recent": recent[-10:],
+            "events": self.events.list(),
         }

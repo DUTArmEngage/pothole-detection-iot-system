@@ -3,53 +3,131 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard</title>
+<title>Pothole Dashboard</title>
 <style>
-  :root { --bg:#0f1419; --panel:#1a212b; --fg:#e6edf3; --muted:#8b98a5; --warn:#f85149; }
+  :root { --bg:#0f1419; --panel:#1a212b; --line:#2b3440; --fg:#e6edf3; --muted:#8b98a5;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family: system-ui, sans-serif; }
-  main { display:grid; gap:16px; padding:16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
-  section { background:var(--panel); border-radius:8px; padding:12px 16px; }
-  h2 { margin:0 0 8px; font-size:15px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
-  #video { width:100%; display:block; border-radius:4px; background:#000; min-height:180px; }
-  #vmeta { margin-top:8px; font:13px ui-monospace, monospace; color:var(--muted); }
-  #imu { width:100%; height:200px; display:block; }
-  #imu-readout { margin-top:8px; font:14px ui-monospace, monospace; color:var(--muted); }
-  #meta { font-size:13px; color:var(--muted); margin-top:4px; }
+
+  /* The page fills the window and never scrolls on a wide display, so it survives being
+     dragged to another screen; below 900px wide the panels stack and the page scrolls. */
+  body { height:100dvh; display:grid; grid-template-rows:auto minmax(0,1fr); gap:clamp(8px,1.2vh,16px); padding:clamp(8px,1.2vh,16px); overflow:hidden; }
+
+  #hud { display:flex; flex-wrap:wrap; align-items:center; gap:clamp(12px,2vw,32px); background:var(--panel); border-radius:8px; padding:clamp(6px,1vh,12px) clamp(12px,1.5vw,24px); }
+  .stat { display:flex; flex-direction:column; line-height:1.1; }
+  .stat .v { font-size:clamp(24px,4.2vh,56px); font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat .v small { font-size:.45em; font-weight:500; color:var(--muted); margin-left:.25em; }
+  .stat .k { font-size:clamp(10px,1.4vh,13px); color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  #pos { font:clamp(12px,1.8vh,16px) ui-monospace, monospace; color:var(--muted); }
+  .spacer { flex:1; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:clamp(11px,1.6vh,14px); padding:3px 10px; border-radius:999px; background:#0f1419; border:1px solid var(--line); color:var(--muted); }
+  .chip::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+  .chip.ok::before { background:var(--ok); } .chip.warn::before { background:var(--warn); } .chip.bad::before { background:var(--bad); }
+  #fs { font:inherit; font-size:clamp(11px,1.6vh,14px); color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:6px; padding:3px 10px; cursor:pointer; }
+
+  main { display:grid; gap:inherit; min-height:0; grid-template-columns:minmax(0,3fr) minmax(0,2fr); grid-template-rows:minmax(0,1.4fr) minmax(0,1fr); }
+  section { background:var(--panel); border-radius:8px; padding:clamp(6px,1vh,12px) clamp(10px,1.2vw,16px); display:flex; flex-direction:column; min-height:0; min-width:0; }
+  #video-panel { grid-row:1 / span 2; }
+  h2 { margin:0 0 6px; font-size:clamp(11px,1.6vh,14px); color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.05em; display:flex; gap:12px; align-items:center; }
+  h2 .legend { margin-left:auto; text-transform:none; letter-spacing:0; font-weight:400; display:flex; gap:10px; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
+  .box { position:relative; flex:1; min-height:0; }
+  #video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; border-radius:4px; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .foot { margin-top:6px; font:clamp(11px,1.5vh,13px) ui-monospace, monospace; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  @media (max-width: 900px) {
+    body { height:auto; min-height:100dvh; overflow:auto; }
+    main { grid-template-columns:1fr; grid-template-rows:none; }
+    #video-panel { grid-row:auto; }
+    .box { flex:none; height:56vw; max-height:60vh; }
+  }
 </style>
 </head>
 <body>
+<header id="hud">
+  <div class="stat"><span class="v" id="speed">--<small>km/h</small></span><span class="k">Speed</span></div>
+  <div class="stat"><span class="v" id="heading">--<small id="compass"></small></span><span class="k">Heading</span></div>
+  <div class="stat"><span class="v" id="count">0</span><span class="k">Potholes this run</span></div>
+  <div id="pos">no position</div>
+  <span class="spacer"></span>
+  <span class="chip" id="chip-gps">GPS</span>
+  <span class="chip" id="chip-imu">IMU</span>
+  <span class="chip" id="chip-video">Video</span>
+  <button id="fs" title="Toggle fullscreen (F)">Fullscreen</button>
+</header>
+
 <main>
+  <section id="video-panel">
+    <h2>Road video <span class="legend"><span><i class="dot" style="background:#3fb950"></i>low</span><span><i class="dot" style="background:#d29922"></i>medium</span><span><i class="dot" style="background:#f85149"></i>high</span></span></h2>
+    <div class="box"><img id="video" src="/video.mjpg" alt="annotated road video"></div>
+    <div class="foot" id="vmeta">video not started</div>
+  </section>
   <section>
-    <h2>Road video (detections)</h2>
-    <img id="video" src="/video.mjpg" alt="annotated road video">
-    <div id="vmeta">video not started</div>
+    <h2>Map <span class="legend" id="maplegend"></span></h2>
+    <div class="box"><canvas id="map"></canvas></div>
   </section>
   <section>
     <h2>Live IMU</h2>
-    <canvas id="imu"></canvas>
-    <div id="imu-readout">waiting for IMU...</div>
-    <div id="meta"></div>
+    <div class="box"><canvas id="imu"></canvas></div>
+    <div class="foot" id="imu-readout">waiting for IMU...</div>
   </section>
 </main>
+
 <script src="/imu_chart.js"></script>
+<script src="/map_view.js"></script>
 <script>
+const $ = id => document.getElementById(id);
+const COMPASS = ['N','NE','E','SE','S','SW','W','NW'];
+let last = null;
+
+function chip(id, label, level, text) { const el = $(id); el.className = 'chip ' + level; el.textContent = text ? `${label} · ${text}` : label; }
+
+function render(st) {
+  const g = st.gps, v = st.video, imu = st.imu;
+  if (g && g.fix) {
+    const f = g.fix;
+    $('speed').firstChild.nodeValue = f.speed_kmh == null ? '--' : f.speed_kmh.toFixed(0);
+    $('heading').firstChild.nodeValue = f.heading == null ? '--' : f.heading.toFixed(0) + '°';
+    $('compass').textContent = f.heading == null ? '' : COMPASS[Math.round(f.heading / 45) % 8];
+    $('pos').textContent = `${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}` + (f.accuracy_m != null ? `  ±${f.accuracy_m.toFixed(0)} m` : '');
+    chip('chip-gps', 'GPS', g.stale ? 'bad' : 'ok', g.stale ? 'stale' : 'live');
+  } else chip('chip-gps', 'GPS', g ? 'warn' : '', g ? 'waiting for fix' : 'off');
+
+  const events = v ? v.events : [];
+  $('count').textContent = events.length;
+  const n = { low: 0, medium: 0, high: 0 }; events.forEach(e => n[e.severity]++);
+  $('maplegend').innerHTML = ['low:#3fb950', 'medium:#d29922', 'high:#f85149'].map(x => { const [k, c] = x.split(':'); return `<span><i class="dot" style="background:${c}"></i>${n[k]}</span>`; }).join('');
+  if (g) drawMap($('map'), { trail: g.trail, stale: g.stale, events });
+
+  drawImu($('imu'), imu, $('imu-readout'));
+  chip('chip-imu', st.fake_imu ? 'IMU (sim)' : 'IMU', imu.stale ? 'bad' : 'ok', imu.stale ? (imu.error ? 'offline' : 'stale') : '');
+
+  if (!v) { chip('chip-video', 'Video', '', 'off'); $('vmeta').textContent = 'detection off'; return; }
+  chip('chip-video', 'Video', v.connected ? 'ok' : 'warn', v.connected ? '' : 'connecting');
+  const l = v.recent[v.recent.length - 1];
+  $('vmeta').textContent = (v.connected ? 'stream OK' : (v.error || 'connecting...')) + ` · ${v.fps} fps · ${v.latency_ms} ms/frame` +
+    (l ? ` · last: ${l.severity.toUpperCase()} ${l.confidence}` : '');
+}
+
 async function tick() {
   try {
-    const { imu, fake_imu, video } = await (await fetch('/api/state', { cache: 'no-store' })).json();
-    drawImu(document.getElementById('imu'), imu, document.getElementById('imu-readout'));
-    document.getElementById('meta').textContent =
-      `${fake_imu ? 'simulated IMU' : 'Pi IMU'} · polls ${imu.polls} · missed windows ${imu.gaps}` + (imu.error ? ` · ${imu.error}` : '');
-    const v = video, vm = document.getElementById('vmeta');
-    if (!v) vm.textContent = 'detection off';
-    else {
-      const last = v.recent[v.recent.length - 1];
-      vm.textContent = (v.connected ? 'stream OK' : (v.error || 'connecting...')) + ` · ${v.fps} fps · ${v.latency_ms} ms/frame` +
-        (last ? ` · last: ${last.severity.toUpperCase()} ${last.confidence}` + (last.lat != null ? ` @ ${last.lat.toFixed(5)}, ${last.lon.toFixed(5)}` : '') : '');
-    }
-  } catch (e) {}
+    last = await (await fetch('/api/state', { cache: 'no-store' })).json();
+    render(last);
+  } catch (e) {
+    chip('chip-gps', 'Dashboard', 'bad', 'server unreachable');
+  }
 }
-tick(); setInterval(tick, 200);
+tick(); setInterval(tick, 250);
+
+// Redraw immediately when the window resizes or moves to a screen with a different pixel ratio.
+new ResizeObserver(() => last && render(last)).observe(document.body);
+matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => location.reload(), { once: true });
+
+function fullscreen() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+$('fs').onclick = fullscreen;
+addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') fullscreen(); });
 </script>
 </body>
 </html>

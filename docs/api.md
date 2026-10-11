@@ -58,7 +58,8 @@ opens it with OpenCV. Frames carry no timestamp; see "Frame source time" in
 |---|---|
 | `/` | the Dashboard page |
 | `/video.mjpg` | annotated video, `multipart/x-mixed-replace` JPEG frames (boxes, severity, confidence) |
-| `/api/state` | `{"imu": ..., "fake_imu": bool, "video": {"connected", "error", "frames", "fps", "latency_ms", "recent": [Detection]}}` |
+| `/api/state` | `{"imu": ..., "fake_imu": bool, "gps": {"fix", "trail", "age_s", "stale"}, "video": {"connected", "error", "frames", "fps", "latency_ms", "recent": [Detection], "events": [...]}}` |
+| `/imu_chart.js`, `/map_view.js` | shared page scripts |
 
 ### Detection payload (`shared/schemas.py: Detection`)
 
@@ -72,7 +73,11 @@ opens it with OpenCV. Frames carry no timestamp; see "Frame source time" in
 
 ### Laptop options
 
-`python -m main_server.main [--video URL|FILE] [--model PATH] [--no-detect] [--fake] [--fake-imu] [--pi URL]`
+`python -m main_server.main [--video URL|FILE] [--model PATH] [--no-detect] [--fake] [--fake-imu] [--pi URL] [--open]`
 
 Without `--video` the laptop reads the Pi's motion stream. `--video ref/vid_potholes.mp4` replays
 the sample road video, looped at its own frame rate, so detection runs with no Pi.
+
+`video.events` is one entry per pothole encounter for the map: detections with a position within
+2 s of each other merge into one event that keeps the worst severity.
+`gps.trail` is `[[lat, lon], ...]`, the last 900 fixes (about 15 min).

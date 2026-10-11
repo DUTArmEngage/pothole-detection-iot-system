@@ -3,7 +3,8 @@
 // over the snapshot window, plus a numeric readout of the newest sample.
 function drawImu(canvas, imu, readout) {
   const r = devicePixelRatio || 1;
-  if (canvas.width !== canvas.clientWidth * r) { canvas.width = canvas.clientWidth * r; canvas.height = canvas.clientHeight * r; }
+  const cw = Math.round(canvas.clientWidth * r), ch = Math.round(canvas.clientHeight * r);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
   const ctx = canvas.getContext('2d'); ctx.setTransform(r, 0, 0, r, 0, 0);
   const w = canvas.clientWidth, h = canvas.clientHeight;
   ctx.clearRect(0, 0, w, h);
