@@ -42,7 +42,7 @@ def make_handler(pi: PiClient, pipeline: Optional[DetectionPipeline] = None, gps
             if self.path.lstrip("/") in SHARED_JS:
                 return self._file(os.path.join(WEB, self.path.lstrip("/")), "application/javascript")
             if self.path == "/api/state":
-                body = {"imu": pi.imu.snapshot(), "fake_imu": pi.fake, "video": pipeline.state() if pipeline else None,
+                body = {"imu": pi.imu.snapshot(), "fake_imu": pi.fake, "imu_enabled": pi.enabled, "video": pipeline.state() if pipeline else None,
                         "gps": gps_state(gps_history) if gps_history else None}
                 return self._send(200, json.dumps(body).encode(), "application/json")
             if self.path == "/video.mjpg" and pipeline:

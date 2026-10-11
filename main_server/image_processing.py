@@ -12,6 +12,7 @@ IMU data past `ts + IMPACT_WINDOW_S` exists (or a short timeout passes).
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from collections import deque
@@ -50,7 +51,8 @@ class FrameSource:
 
     def __init__(self, source: str, loop: bool = True, backlog: int = 3):
         self.source = source
-        self.is_file = not source.lower().startswith(("http://", "https://", "rtsp://"))
+        self.is_camera = source.isdigit()  # "0", "1": a webcam attached to this machine
+        self.is_file = not self.is_camera and not source.lower().startswith(("http://", "https://", "rtsp://"))
         self.loop = loop and self.is_file
         self._frames: Deque[Frame] = deque(maxlen=backlog)
         self._cond = threading.Condition()
@@ -67,7 +69,11 @@ class FrameSource:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            cap = cv2.VideoCapture(self.source)
+            if self.is_camera:  # DirectShow opens webcams quickly and reliably on Windows
+                backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+                cap = cv2.VideoCapture(int(self.source), backend)
+            else:
+                cap = cv2.VideoCapture(self.source)
             if not cap.isOpened():
                 self.connected, self.error = False, f"cannot open {self.source}"
                 self._stop.wait(1.0)  # the Pi may not be up yet; keep retrying

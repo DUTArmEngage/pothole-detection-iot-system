@@ -34,7 +34,7 @@ def main() -> None:
         read = source.read
     service = GpsService(read, history=900)
     server = serve(service, port=args.port)
-    pi = PiClient(args.pi, fake=args.fake_imu)
+    pi = PiClient(args.pi, fake=args.fake_imu, enabled=not args.no_imu)
     pi.start()
     pipeline = make_pipeline(args, pi, service.history)
     dashboard = build_dashboard(pi, "0.0.0.0", args.dashboard_port, pipeline, service.history)

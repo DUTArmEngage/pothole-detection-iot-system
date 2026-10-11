@@ -36,13 +36,15 @@ def fake_window_fetcher(hz: int = 100):
 
 
 class PiClient:
-    def __init__(self, base_url: Optional[str] = None, fake: bool = False):
+    def __init__(self, base_url: Optional[str] = None, fake: bool = False, enabled: bool = True):
         base = (base_url or f"http://{config.PI_HOST}:{config.PI_PORT}").rstrip("/")
         self.fake = fake
+        self.enabled = enabled  # False: no IMU in this setup (lab demo), nothing is polled
         self.imu = ImuPoller(fake_window_fetcher() if fake else http_fetcher(f"{base}/imu/latest"))
 
     def start(self) -> None:
-        self.imu.start()
+        if self.enabled:
+            self.imu.start()
 
     def stop(self) -> None:
         self.imu.stop()

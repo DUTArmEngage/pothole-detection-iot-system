@@ -101,8 +101,9 @@ function render(st) {
   $('maplegend').innerHTML = ['low:#3fb950', 'medium:#d29922', 'high:#f85149'].map(x => { const [k, c] = x.split(':'); return `<span><i class="dot" style="background:${c}"></i>${n[k]}</span>`; }).join('');
   if (g) drawMap($('map'), { trail: g.trail, stale: g.stale, events });
 
-  drawImu($('imu'), imu, $('imu-readout'));
-  chip('chip-imu', st.fake_imu ? 'IMU (sim)' : 'IMU', imu.stale ? 'bad' : 'ok', imu.stale ? (imu.error ? 'offline' : 'stale') : '');
+  if (st.imu_enabled === false) { chip('chip-imu', 'IMU', '', 'not used'); $('imu-readout').textContent = 'No IMU in this setup: severity uses box size and confidence'; }
+  else drawImu($('imu'), imu, $('imu-readout'));
+  if (st.imu_enabled !== false) chip('chip-imu', st.fake_imu ? 'IMU (sim)' : 'IMU', imu.stale ? 'bad' : 'ok', imu.stale ? (imu.error ? 'offline' : 'stale') : '');
 
   if (!v) { chip('chip-video', 'Video', '', 'off'); $('vmeta').textContent = 'detection off'; return; }
   chip('chip-video', 'Video', v.connected ? 'ok' : 'warn', v.connected ? '' : 'connecting');

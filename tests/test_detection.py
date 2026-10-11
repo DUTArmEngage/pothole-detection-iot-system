@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
+from main_server.clients.pi_client import PiClient
 from main_server.image_processing import (
     DetectionPipeline, Frame, FrameSource, annotate, dedupe, iou, nearest_fix, peak_impact,
 )
@@ -128,6 +129,28 @@ class Pipeline(unittest.TestCase):
     def test_annotation_draws_nothing_without_detections(self):
         img = np.zeros((50, 50, 3), dtype=np.uint8)
         self.assertFalse(annotate(img, []).any())
+
+
+class SourceKinds(unittest.TestCase):
+    def test_source_kind_detection(self):
+        self.assertTrue(FrameSource("0").is_camera)
+        self.assertTrue(FrameSource("1").is_camera)
+        self.assertFalse(FrameSource("0").is_file)
+        self.assertFalse(FrameSource("http://pi:8081/").is_file)
+        self.assertTrue(FrameSource("clip.mp4").is_file)
+
+    def test_no_imu_pipeline_still_grades_from_size_and_confidence(self):
+        p = DetectionPipeline(None, FakeDetector([raw(100, 100, 260, 220, 0.8)]), None)
+        dets, _ = p.process(Frame(np.zeros((360, 640, 3), dtype=np.uint8), time.time()))
+        self.assertEqual(len(dets), 1)
+        self.assertIn(dets[0].severity, ("low", "medium", "high"))
+
+    def test_disabled_pi_client_polls_nothing(self):
+        pi = PiClient(enabled=False)
+        pi.start()
+        time.sleep(0.3)
+        self.assertEqual(pi.imu.polls, 0)
+        self.assertEqual(pi.imu.error, None)
 
 
 @unittest.skipUnless(os.path.exists(VIDEO), "sample video missing")
