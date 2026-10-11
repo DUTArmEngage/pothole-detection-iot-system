@@ -73,7 +73,7 @@ class Server(unittest.TestCase):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
         try:
-            for path, needle in [("/", b"Pothole Dashboard"), ("/map_view.js", b"drawMap"), ("/imu_chart.js", b"drawImu")]:
+            for path, needle in [("/", b"Pothole Dashboard"), ("/vendor/leaflet.js", b"Leaflet 1.9.4"), ("/vendor/leaflet.css", b"leaflet-pane"), ("/imu_chart.js", b"drawImu")]:
                 with urllib.request.urlopen(base + path) as r:
                     self.assertIn(needle, r.read(), path)
             with urllib.request.urlopen(base + "/api/state") as r:

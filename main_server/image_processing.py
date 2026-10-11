@@ -166,27 +166,33 @@ class EventLog:
     """One map event per pothole encounter: detections within EVENT_MERGE_S merge, keeping the worst severity.
 
     The same pothole appears in many consecutive frames; plotting each would smear a pile of pins.
-    Only detections that carry a position become events.
+    Only detections that carry a position and reach `min_confidence` become events.
     """
 
-    def __init__(self, keep: int = 200):
+    def __init__(self, keep: int = 200, min_confidence: float = 0.0):
         self._events: Deque[dict] = deque(maxlen=keep)
+        self.min_confidence = min_confidence
 
-    def add(self, d: Detection) -> None:
-        if d.lat is None:
-            return
+    def add(self, d: Detection, accuracy_m: Optional[float] = None) -> Optional[Tuple[dict, bool]]:
+        """Fold a detection in. Returns (event, is_new), or None when it does not qualify."""
+        if d.lat is None or d.confidence < self.min_confidence:
+            return None
         t = parse_ts(d.ts).timestamp()
         if self._events and t - self._events[-1]["_t"] <= EVENT_MERGE_S:
             e = self._events[-1]
             e["_t"] = t
             if SEVERITY_RANK[d.severity] > SEVERITY_RANK[e["severity"]]:
                 e["severity"] = d.severity
+            e["_better"] = d.confidence > e["confidence"]
             e["confidence"] = max(e["confidence"], d.confidence)
-            return
-        self._events.append({"_t": t, "ts": d.ts, "lat": d.lat, "lon": d.lon, "severity": d.severity, "confidence": d.confidence})
+            return e, False
+        e = {"_t": t, "ts": d.ts, "lat": d.lat, "lon": d.lon, "severity": d.severity,
+             "confidence": d.confidence, "accuracy_m": accuracy_m, "id": None, "_better": True}
+        self._events.append(e)
+        return e, True
 
     def list(self) -> List[dict]:
-        return [{k: v for k, v in e.items() if k != "_t"} for e in self._events]
+        return [{k: v for k, v in e.items() if not k.startswith("_")} for e in self._events]
 
 
 # --- pipeline ---------------------------------------------------------------------
@@ -199,6 +205,8 @@ class DetectionPipeline:
         imu: Optional[ImuPoller] = None,
         gps_history: Optional[Callable[[], List[GpsFix]]] = None,
         recent: int = 50,
+        store=None,
+        pin_confidence: float = config.PIN_CONFIDENCE,
     ):
         self.frames, self.detector, self.imu, self.gps_history = frames, detector, imu, gps_history
         self._classifier: Optional[SeverityClassifier] = None
@@ -206,7 +214,8 @@ class DetectionPipeline:
         self._jpeg: Optional[bytes] = None
         self._seq = 0
         self._recent: Deque[Detection] = deque(maxlen=recent)
-        self.events = EventLog()
+        self.events = EventLog(min_confidence=pin_confidence)
+        self.store = store  # a PinStore, or None: pins are then shown but not saved
         self._out_times: Deque[float] = deque()
         self._stop = threading.Event()
         self.fps = 0.0
@@ -255,6 +264,25 @@ class DetectionPipeline:
         """Detect, grade and annotate one frame (no waiting for IMU data)."""
         return self.grade(frame, self.detect(frame))
 
+    def _pin(self, d: Detection, jpeg: Optional[bytes]) -> None:
+        """Pin a high-confidence detection and, when a store is attached, save it."""
+        fix = self._latest_fix()
+        res = self.events.add(d, fix.accuracy_m if fix else None)
+        if res is None or self.store is None:
+            return
+        e, is_new = res
+        try:
+            if is_new:
+                e["id"] = self.store.add(e["ts"], e["lat"], e["lon"], e["severity"], e["confidence"], e["accuracy_m"], jpeg)
+            elif e["id"] is not None:
+                self.store.update(e["id"], e["severity"], e["confidence"], jpeg if e["_better"] else None)
+        except Exception as exc:  # a full disk must not stop the video
+            print(f"[pins] could not save pin: {exc}")
+
+    def _latest_fix(self) -> Optional[GpsFix]:
+        hist = self.gps_history() if self.gps_history else []
+        return hist[-1] if hist else None
+
     def _publish(self, dets: List[Detection], image: np.ndarray) -> None:
         ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 80])
         now = time.perf_counter()
@@ -267,7 +295,7 @@ class DetectionPipeline:
                 self._jpeg, self._seq = buf.tobytes(), self._seq + 1
             self._recent.extend(dets)
             for d in dets:
-                self.events.add(d)
+                self._pin(d, buf.tobytes() if ok else None)
 
     def _run(self) -> None:
         # Inference runs on every frame straight away. Only the grading step waits for IMU
@@ -302,4 +330,6 @@ class DetectionPipeline:
             "latency_ms": round(self.latency_ms, 1),
             "recent": recent[-10:],
             "events": self.events.list(),
+            "saving": self.store is not None,
+            "pin_confidence": self.events.min_confidence,
         }

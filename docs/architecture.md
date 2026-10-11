@@ -60,6 +60,8 @@ Check the link from the laptop: `curl http://192.168.50.2:8001/imu/latest` and
 
 ## Presenting
 
+The map needs internet for OpenStreetMap tiles; check it before presenting.
+
 Open `http://localhost:8090/` on the laptop (or start with `--open`), drag the window to the
 external screen and press `F` for fullscreen. The page fills the window without scrolling, rescales
 when the window or the screen's pixel ratio changes, and stacks into one column below 900 px wide.

@@ -25,3 +25,8 @@ IMPACT_WINDOW_S = 0.3   # IMU samples within +/- this of the frame time feed sev
 DETECT_IOU = 0.5        # overlapping boxes above this IoU are merged
 DETECT_CONF = 0.35
 GPS_MATCH_S = 2.0       # max |frame ts - GPS fix ts| for a detection to get lat/lon
+
+# Pins: detections at or above this confidence are pinned on the map and saved for later use.
+# 0.80 by default; override with PIN_CONFIDENCE or --pin-confidence.
+PIN_CONFIDENCE = float(os.environ.get("PIN_CONFIDENCE", "0.80"))
+PINS_DB = os.environ.get("PINS_DB", "data/potholes.db")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, List, Optional
@@ -18,7 +19,11 @@ PAGE = os.path.join(HERE, "index.html")
 
 CRLF = bytes([13, 10])
 WEB = os.path.join(HERE, "..", "..", "shared", "web")
-SHARED_JS = ("imu_chart.js", "map_view.js")
+SHARED_FILES = {
+    "imu_chart.js": "application/javascript",
+    "vendor/leaflet.js": "application/javascript",
+    "vendor/leaflet.css": "text/css",
+}
 
 
 def gps_state(history: Callable[[], List[GpsFix]]) -> dict:
@@ -39,8 +44,20 @@ def make_handler(pi: PiClient, pipeline: Optional[DetectionPipeline] = None, gps
         def do_GET(self):
             if self.path in ("/", "/index.html"):
                 return self._file(PAGE, "text/html; charset=utf-8")
-            if self.path.lstrip("/") in SHARED_JS:
-                return self._file(os.path.join(WEB, self.path.lstrip("/")), "application/javascript")
+            if self.path.lstrip("/") in SHARED_FILES:  # exact names only: no path traversal
+                name = self.path.lstrip("/")
+                return self._file(os.path.join(WEB, name), SHARED_FILES[name])
+            store = pipeline.store if pipeline else None
+            if self.path == "/api/pins":
+                return self._send(200, json.dumps(store.all() if store else []).encode(), "application/json")
+            if self.path == "/api/pins.geojson":
+                body = json.dumps(store.geojson() if store else {"type": "FeatureCollection", "features": []}).encode()
+                return self._send(200, body, "application/geo+json", {"Content-Disposition": 'attachment; filename="potholes.geojson"'})
+            m = re.fullmatch(r"/pins/(\d+)\.jpg", self.path)
+            if m and store:
+                img = store.image_path(int(m.group(1)))
+                if img:
+                    return self._file(img, "image/jpeg")
             if self.path == "/api/state":
                 body = {"imu": pi.imu.snapshot(), "fake_imu": pi.fake, "imu_enabled": pi.enabled, "video": pipeline.state() if pipeline else None,
                         "gps": gps_state(gps_history) if gps_history else None}
@@ -71,9 +88,11 @@ def make_handler(pi: PiClient, pipeline: Optional[DetectionPipeline] = None, gps
             with open(path, "rb") as f:
                 self._send(200, f.read(), ctype)
 
-        def _send(self, code: int, data: bytes, ctype: str):
+        def _send(self, code: int, data: bytes, ctype: str, headers: Optional[dict] = None):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()

@@ -41,6 +41,17 @@ python -m rpi.server.main --fake          # simulated IMU on :8001
 python -m rpi.dashscreen.main             # http://localhost:8080/
 ```
 
+### Lab demo: webcam on this laptop, no Pi, real location
+
+```bash
+python -m main_server.main --video 1 --no-imu --open     # --video 0 for the other camera
+```
+
+The map is OpenStreetMap, centred on the laptop. Detections at 80% confidence or more are pinned at the
+laptop's position and saved in `data/potholes.db` for later (`--pin-confidence 0.9` to be stricter,
+`GET /api/pins.geojson` to export). Detection runs on an Intel GPU through OpenVINO when one is
+found (`--device cpu` to opt out).
+
 Tests: `python -m unittest discover -s tests -t .`
 
 ## Real hardware
@@ -66,7 +77,8 @@ Tests: `python -m unittest discover -s tests -t .`
 
 ## Honest limits
 
-- Windows location is coarse, so map pins can sit tens of metres off. Speed and heading are derived
+- Windows location is coarse, so map pins can sit tens of metres off. A pin marks the laptop's position,
+  not the pothole's. Speed and heading are derived
   from successive fixes and are noisy.
 - The frame timestamp is the laptop's arrival time (the `motion` stream carries none).
   `VIDEO_LATENCY_S` is uncalibrated, and severity thresholds are the reference defaults. Calibrate

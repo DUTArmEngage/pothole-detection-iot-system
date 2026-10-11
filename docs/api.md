@@ -59,7 +59,10 @@ opens it with OpenCV. Frames carry no timestamp; see "Frame source time" in
 | `/` | the Dashboard page |
 | `/video.mjpg` | annotated video, `multipart/x-mixed-replace` JPEG frames (boxes, severity, confidence) |
 | `/api/state` | `{"imu": ..., "fake_imu": bool, "gps": {"fix", "trail", "age_s", "stale"}, "video": {"connected", "error", "frames", "fps", "latency_ms", "recent": [Detection], "events": [...]}}` |
-| `/imu_chart.js`, `/map_view.js` | shared page scripts |
+| `/api/pins` | every saved pin, all runs: `[{id, ts, lat, lon, accuracy_m, severity, confidence, session, image, current}]` |
+| `/api/pins.geojson` | the same pins as a GeoJSON download (`[lon, lat]` coordinates) |
+| `/pins/<id>.jpg` | the annotated snapshot saved with a pin |
+| `/imu_chart.js`, `/vendor/leaflet.js`, `/vendor/leaflet.css` | page scripts and styles (Leaflet 1.9.4 is vendored) |
 
 ### Detection payload (`shared/schemas.py: Detection`)
 
@@ -78,6 +81,25 @@ opens it with OpenCV. Frames carry no timestamp; see "Frame source time" in
 Without `--video` the laptop reads the Pi's motion stream. `--video ref/vid_potholes.mp4` replays
 the sample road video, looped at its own frame rate, so detection runs with no Pi.
 
-`video.events` is one entry per pothole encounter for the map: detections with a position within
-2 s of each other merge into one event that keeps the worst severity.
+`video.events` is one entry per pinned pothole encounter in this run: detections at or above the pin
+confidence, with a position, within 2 s of each other merge into one event that keeps the worst
+severity. `video.saving` says whether pins are being written to the database.
 `gps.trail` is `[[lat, lon], ...]`, the last 900 fixes (about 15 min).
+
+## Map and saved pins
+
+The Dashboard map is OpenStreetMap (Leaflet, standard tiles from `tile.openstreetmap.org`). It opens
+on the laptop's current position, follows it until you drag the map (then "Recenter" appears), and
+shows the accuracy circle, the trail and the pins. Tiles need internet; without it the pins and
+trail still draw on a blank map.
+
+A detection at or above the pin confidence (default **0.80**, set with `--pin-confidence` or
+`PIN_CONFIDENCE`) is pinned **at the laptop's position when the frame was seen**, coloured by
+severity, and saved to SQLite (`data/potholes.db`, option `--pins-db`) with an annotated snapshot in
+`data/pins/<id>.jpg`. Pins from earlier runs reload on start, drawn fainter, and are never deleted
+by the app. `--no-save` shows pins without saving them.
+
+Table `pins`: `id, ts, lat, lon, accuracy_m, severity, confidence, session, image`.
+
+`lat`/`lon` is where the laptop is, not where the pothole is: the OS reports the laptop's position
+(often tens of metres off), and a pothole seen by the camera can be several metres ahead.

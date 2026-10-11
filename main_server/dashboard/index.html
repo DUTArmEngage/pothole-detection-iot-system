@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pothole Dashboard</title>
+<link rel="stylesheet" href="/vendor/leaflet.css">
 <style>
   :root { --bg:#0f1419; --panel:#1a212b; --line:#2b3440; --fg:#e6edf3; --muted:#8b98a5;
           --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff; }
@@ -35,6 +36,11 @@
   .box { position:relative; flex:1; min-height:0; }
   #video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; border-radius:4px; }
   canvas { position:absolute; inset:0; width:100%; height:100%; }
+  #map { position:absolute; inset:0; border-radius:4px; background:#1b232e; }
+  .leaflet-container { font:12px system-ui, sans-serif; }
+  #recenter { position:absolute; z-index:1000; right:10px; bottom:28px; font:12px system-ui; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--fg); cursor:pointer; display:none; }
+  .pin-pop img { width:220px; display:block; margin-top:6px; border-radius:4px; }
+  .pin-pop b { text-transform:uppercase; }
   .foot { margin-top:6px; font:clamp(11px,1.5vh,13px) ui-monospace, monospace; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   @media (max-width: 900px) {
@@ -49,7 +55,9 @@
 <header id="hud">
   <div class="stat"><span class="v" id="speed">--<small>km/h</small></span><span class="k">Speed</span></div>
   <div class="stat"><span class="v" id="heading">--<small id="compass"></small></span><span class="k">Heading</span></div>
-  <div class="stat"><span class="v" id="count">0</span><span class="k">Potholes this run</span></div>
+  <div class="stat"><span class="v" id="count">0</span><span class="k">Pinned this run</span></div>
+  <div class="stat"><span class="v" id="saved">0</span><span class="k">Saved in total</span></div>
+  <a id="export" href="/api/pins.geojson" download style="color:var(--muted);font-size:13px">Export pins</a>
   <div id="pos">no position</div>
   <span class="spacer"></span>
   <span class="chip" id="chip-gps">GPS</span>
@@ -66,7 +74,7 @@
   </section>
   <section>
     <h2>Map <span class="legend" id="maplegend"></span></h2>
-    <div class="box"><canvas id="map"></canvas></div>
+    <div class="box"><div id="map"></div><button id="recenter">Recenter</button></div>
   </section>
   <section>
     <h2>Live IMU</h2>
@@ -76,7 +84,7 @@
 </main>
 
 <script src="/imu_chart.js"></script>
-<script src="/map_view.js"></script>
+<script src="/vendor/leaflet.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const COMPASS = ['N','NE','E','SE','S','SW','W','NW'];
@@ -96,10 +104,10 @@ function render(st) {
   } else chip('chip-gps', 'GPS', g ? 'warn' : '', g ? 'waiting for fix' : 'off');
 
   const events = v ? v.events : [];
-  $('count').textContent = events.length;
+  if (!v || !v.events) $('count').textContent = 0;
   const n = { low: 0, medium: 0, high: 0 }; events.forEach(e => n[e.severity]++);
   $('maplegend').innerHTML = ['low:#3fb950', 'medium:#d29922', 'high:#f85149'].map(x => { const [k, c] = x.split(':'); return `<span><i class="dot" style="background:${c}"></i>${n[k]}</span>`; }).join('');
-  if (g) drawMap($('map'), { trail: g.trail, stale: g.stale, events });
+  if (g) updateMap(g, events, !v || v.saving !== false);
 
   if (st.imu_enabled === false) { chip('chip-imu', 'IMU', '', 'not used'); $('imu-readout').textContent = 'No IMU in this setup: severity uses box size and confidence'; }
   else drawImu($('imu'), imu, $('imu-readout'));
@@ -110,6 +118,54 @@ function render(st) {
   const l = v.recent[v.recent.length - 1];
   $('vmeta').textContent = (v.connected ? 'stream OK' : (v.error || 'connecting...')) + ` · ${v.fps} fps · ${v.latency_ms} ms/frame` +
     (l ? ` · last: ${l.severity.toUpperCase()} ${l.confidence}` : '');
+}
+
+// ---- Map: OpenStreetMap tiles around this laptop's position, with saved pothole pins ----
+const SEV = { low: '#3fb950', medium: '#d29922', high: '#f85149' };
+const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([0, 0], 2);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+const trailLine = L.polyline([], { color: '#58a6ff', weight: 4, opacity: .8 }).addTo(map);
+const me = L.circleMarker([0, 0], { radius: 9, color: '#fff', weight: 2, fillColor: '#58a6ff', fillOpacity: 1 });
+const accuracy = L.circle([0, 0], { radius: 0, color: '#58a6ff', weight: 1, fillOpacity: .08 });
+const pinLayer = L.layerGroup().addTo(map);
+let follow = true, centred = false, pinKey = '';
+map.on('dragstart zoomstart', e => { if (centred && e.type === 'dragstart') { follow = false; $('recenter').style.display = 'block'; } });
+$('recenter').onclick = () => { follow = true; $('recenter').style.display = 'none'; if (lastLatLng) map.setView(lastLatLng, Math.max(map.getZoom(), 17)); };
+let lastLatLng = null;
+
+function updateMap(g, events, saving) {
+  if (!g.fix) return;
+  lastLatLng = [g.fix.lat, g.fix.lon];
+  trailLine.setLatLngs(g.trail);
+  if (!map.hasLayer(me)) { me.addTo(map); accuracy.addTo(map); }
+  me.setLatLng(lastLatLng).setStyle({ fillColor: g.stale ? '#f85149' : '#58a6ff' });
+  accuracy.setLatLng(lastLatLng).setRadius(g.fix.accuracy_m || 0);
+  if (!centred) { map.setView(lastLatLng, 17); centred = true; }   // first fix: open on where the laptop is
+  else if (follow) map.panTo(lastLatLng, { animate: true });
+  if (saving) refreshPins(events.length); else showPins(events.map(e => ({ ...e, current: true })));
+}
+
+function showPins(pins) {
+  pinLayer.clearLayers();
+  for (const p of pins) {
+    const m = L.circleMarker([p.lat, p.lon], { radius: 9, color: '#0f1419', weight: 2, fillColor: SEV[p.severity] || '#8b98a5', fillOpacity: p.current ? 1 : .55 });
+    m.bindPopup(`<div class="pin-pop"><b>${p.severity}</b> pothole, ${(p.confidence * 100).toFixed(0)}% confident<br>${new Date(p.ts).toLocaleString()}` +
+      `${p.current ? '' : ' (earlier run)'}${p.image ? `<img src="/pins/${p.id}.jpg" alt="detection">` : ''}</div>`);
+    m.addTo(pinLayer);
+  }
+  $('count').textContent = pins.filter(p => p.current).length;
+}
+
+let pinsBusy = false;
+async function refreshPins(runCount) {
+  const key = runCount + ':' + Math.floor(Date.now() / 10000);   // on a new pin, and every 10 s
+  if (key === pinKey || pinsBusy) return;
+  pinKey = key; pinsBusy = true;
+  try {
+    const pins = await (await fetch('/api/pins', { cache: 'no-store' })).json();
+    showPins(pins);
+    $('saved').textContent = pins.length;
+  } catch (e) {} finally { pinsBusy = false; }
 }
 
 async function tick() {
@@ -123,7 +179,7 @@ async function tick() {
 tick(); setInterval(tick, 250);
 
 // Redraw immediately when the window resizes or moves to a screen with a different pixel ratio.
-new ResizeObserver(() => last && render(last)).observe(document.body);
+new ResizeObserver(() => { map.invalidateSize(); last && render(last); }).observe(document.body);
 matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => location.reload(), { once: true });
 
 function fullscreen() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
