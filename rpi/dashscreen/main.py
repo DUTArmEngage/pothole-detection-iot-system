@@ -9,6 +9,7 @@ import argparse
 from rpi.clients.gps_client import GpsClient
 from rpi.dashscreen.server import build_server
 from shared import config
+from shared.imu_poller import ImuPoller, http_fetcher
 
 
 def main() -> None:
@@ -20,12 +21,15 @@ def main() -> None:
     url = f"{args.laptop.rstrip('/')}/gps/current" if args.laptop else None
     gps = GpsClient(url)
     gps.start()
-    server = build_server(gps, "0.0.0.0", args.port)
+    imu = ImuPoller(http_fetcher(f"http://127.0.0.1:{config.PI_PORT}/imu/latest"))  # the Pi's own server
+    imu.start()
+    server = build_server(gps, imu, "0.0.0.0", args.port)
     print(f"[dashscreen] http://localhost:{args.port}/  polling {gps.url}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         gps.stop()
+        imu.stop()
 
 
 if __name__ == "__main__":

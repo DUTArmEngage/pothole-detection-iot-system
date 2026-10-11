@@ -7,18 +7,24 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from rpi.clients.gps_client import GpsClient
+from shared.imu_poller import ImuPoller
 
 PAGE = os.path.join(os.path.dirname(__file__), "index.html")
+CHART_JS = os.path.join(os.path.dirname(__file__), "..", "..", "shared", "web", "imu_chart.js")
 
 
-def make_handler(gps: GpsClient):
+def make_handler(gps: GpsClient, imu: ImuPoller):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path in ("/", "/index.html"):
                 with open(PAGE, "rb") as f:
                     return self._send(200, f.read(), "text/html; charset=utf-8")
+            if self.path == "/imu_chart.js":
+                with open(CHART_JS, "rb") as f:
+                    return self._send(200, f.read(), "application/javascript")
             if self.path == "/api/state":
-                return self._send(200, json.dumps({"gps": gps.snapshot()}).encode(), "application/json")
+                body = {"gps": gps.snapshot(), "imu": imu.snapshot()}
+                return self._send(200, json.dumps(body).encode(), "application/json")
             self._send(404, b"not found", "text/plain")
 
         def _send(self, code: int, data: bytes, ctype: str):
@@ -35,5 +41,5 @@ def make_handler(gps: GpsClient):
     return Handler
 
 
-def build_server(gps: GpsClient, host: str, port: int) -> ThreadingHTTPServer:
-    return ThreadingHTTPServer((host, port), make_handler(gps))
+def build_server(gps: GpsClient, imu: ImuPoller, host: str, port: int) -> ThreadingHTTPServer:
+    return ThreadingHTTPServer((host, port), make_handler(gps, imu))

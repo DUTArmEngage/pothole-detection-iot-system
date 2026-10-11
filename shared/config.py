@@ -9,6 +9,7 @@ LAPTOP_PORT = int(os.environ.get("LAPTOP_PORT", "8000"))
 PI_HOST = os.environ.get("PI_HOST", "127.0.0.1")
 PI_PORT = int(os.environ.get("PI_PORT", "8001"))
 DASHSCREEN_PORT = int(os.environ.get("DASHSCREEN_PORT", "8080"))
+DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "8090"))
 
 GPS_POLL_S = 1.0
 IMU_POLL_S = 0.1
