@@ -16,6 +16,7 @@ DEFAULT_MODEL = "ref/models/pothole.pt"
 def add_detection_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--video", default=None, help=f"video source: a webcam index (0, 1, ...), a URL or a file. Default: the Pi's motion stream, http://<pi>:{config.MOTION_PORT}/")
     ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--device", default="auto", choices=("auto", "cuda", "gpu", "cpu"), help="inference device: auto (fastest available: NVIDIA, then Intel GPU via OpenVINO, then CPU), cuda, gpu (Intel), cpu")
     ap.add_argument("--no-imu", action="store_true", help="no IMU in this setup: skip polling and grade severity from box size and confidence")
     ap.add_argument("--no-detect", action="store_true", help="skip video and detection")
 
@@ -23,14 +24,14 @@ def add_detection_args(ap: argparse.ArgumentParser) -> None:
 def make_pipeline(args, pi: PiClient, gps_history: Optional[Callable[[], List[GpsFix]]] = None) -> Optional[DetectionPipeline]:
     if args.no_detect:
         return None
-    from ref.edge.detector import Detector  # pulls in ultralytics; only when detection is on
+    from main_server.accel import make_detector  # pulls in ultralytics; only when detection is on
 
     source = args.video or f"http://{config.PI_HOST}:{config.MOTION_PORT}/"
-    detector = Detector(args.model, conf_threshold=config.DETECT_CONF, iou_threshold=config.DETECT_IOU)
+    detector, device_name = make_detector(args.model, args.device, config.DETECT_CONF, config.DETECT_IOU)
     detector.warmup()
     frames = FrameSource(source)
     pipeline = DetectionPipeline(frames, detector, pi.imu if pi.enabled else None, gps_history)
     frames.start()
     pipeline.start()
-    print(f"[detect] {source} -> {args.model}")
+    print(f"[detect] {source} -> {args.model} on {device_name}")
     return pipeline
