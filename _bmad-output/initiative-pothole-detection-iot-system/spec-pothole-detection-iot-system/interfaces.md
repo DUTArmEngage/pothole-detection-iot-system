@@ -42,3 +42,12 @@
 | `lat`, `lon` | float, optional | Matched from the nearest GPS fix by `ts` when one exists |
 
 The `ts`, `bbox` and `lat`/`lon` fields are a default derived from `ref/edge/detector.py`; the user had no preference, so build may adjust them.
+
+## Frame source time (decided in epic 3's spike)
+
+The `motion` MJPEG stream carries no per-frame timestamp. A frame's `ts` is the laptop's clock when the frame arrives, minus `VIDEO_LATENCY_S` (`shared/config.py`, default 0, env override) for capture and network delay. The laptop clock is NTP-synced, as are the Pi's IMU timestamps, so frame time and IMU time are comparable.
+
+- Severity takes the peak vertical deviation `|az - 1|` over IMU samples within +/- `IMPACT_WINDOW_S` (0.3 s) of the frame `ts`. A strike lands after the pothole is seen, so grading of a frame waits (up to 0.6 s) for IMU samples past `ts + 0.3 s`; inference does not wait.
+- No IMU samples in the window means severity falls back to the box-size and confidence blend.
+- `lat`/`lon` come from the nearest laptop GPS fix within 2 s (`GPS_MATCH_S`); absent otherwise.
+- Calibrating `VIDEO_LATENCY_S` (tap the camera in view while tapping the IMU, compare peaks) is a hardware task, still to do.

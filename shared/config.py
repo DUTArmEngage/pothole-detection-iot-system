@@ -10,6 +10,7 @@ PI_HOST = os.environ.get("PI_HOST", "127.0.0.1")
 PI_PORT = int(os.environ.get("PI_PORT", "8001"))
 DASHSCREEN_PORT = int(os.environ.get("DASHSCREEN_PORT", "8080"))
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "8090"))
+MOTION_PORT = int(os.environ.get("MOTION_PORT", "8081"))
 
 GPS_POLL_S = 1.0
 IMU_POLL_S = 0.1
@@ -17,3 +18,10 @@ IMU_WINDOW_S = 1.0
 STALE_AFTER_S = 3.0
 HTTP_TIMEOUT_S = 1.0
 TRAIL_MAX_POINTS = 300
+
+# Video / detection
+VIDEO_LATENCY_S = float(os.environ.get("VIDEO_LATENCY_S", "0.0"))  # capture+network delay subtracted from frame arrival time
+IMPACT_WINDOW_S = 0.3   # IMU samples within +/- this of the frame time feed severity
+DETECT_IOU = 0.5        # overlapping boxes above this IoU are merged
+DETECT_CONF = 0.35
+GPS_MATCH_S = 2.0       # max |frame ts - GPS fix ts| for a detection to get lat/lon

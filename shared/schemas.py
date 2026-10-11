@@ -76,3 +76,30 @@ class ImuSample:
         sample = cls(ts=str(d["ts"]), **{k: float(d[k]) for k in ("ax", "ay", "az", "gx", "gy", "gz")})
         parse_ts(sample.ts)
         return sample
+
+
+@dataclass
+class Detection:
+    """One graded pothole detection. `ts` is the frame's source time (see interfaces.md)."""
+
+    ts: str
+    bbox: list  # [x1, y1, x2, y2] pixels
+    severity: str  # "low" | "medium" | "high"
+    confidence: float
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Detection":
+        if d["severity"] not in ("low", "medium", "high"):
+            raise ValueError(f"bad severity {d['severity']!r}")
+        bbox = [float(v) for v in d["bbox"]]
+        if len(bbox) != 4:
+            raise ValueError("bbox needs 4 values")
+        det = cls(ts=str(d["ts"]), bbox=bbox, severity=d["severity"], confidence=float(d["confidence"]),
+                  lat=_opt_float(d, "lat"), lon=_opt_float(d, "lon"))
+        parse_ts(det.ts)
+        return det

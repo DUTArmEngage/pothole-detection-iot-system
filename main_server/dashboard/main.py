@@ -4,6 +4,7 @@ import argparse
 
 from main_server.clients.pi_client import PiClient
 from main_server.dashboard.server import build_server
+from main_server.detection import add_detection_args, make_pipeline
 from shared import config
 
 
@@ -11,12 +12,14 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fake-imu", action="store_true", help="simulated IMU, Pi not needed")
     ap.add_argument("--pi", default=None, help="Pi base URL, default from shared.config")
+    add_detection_args(ap)
     ap.add_argument("--port", type=int, default=config.DASHBOARD_PORT)
     args = ap.parse_args()
 
     pi = PiClient(args.pi, fake=args.fake_imu)
     pi.start()
-    server = build_server(pi, "0.0.0.0", args.port)
+    pipeline = make_pipeline(args, pi)
+    server = build_server(pi, "0.0.0.0", args.port, pipeline)
     print(f"[dashboard] http://localhost:{args.port}/")
     try:
         server.serve_forever()

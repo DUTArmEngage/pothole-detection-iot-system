@@ -6,6 +6,7 @@ import threading
 
 from main_server.clients.pi_client import PiClient
 from main_server.dashboard.server import build_server as build_dashboard
+from main_server.detection import add_detection_args, make_pipeline
 from main_server.gps import GpsService, serve
 from shared import config
 from tests.fake_gps import FakeRoute
@@ -17,6 +18,7 @@ def main() -> None:
     ap.add_argument("--speed-kmh", type=float, default=30.0, help="fake route speed")
     ap.add_argument("--fake-imu", action="store_true", help="simulated IMU instead of polling the Pi")
     ap.add_argument("--pi", default=None, help="Pi base URL, default from shared.config")
+    add_detection_args(ap)
     ap.add_argument("--port", type=int, default=config.LAPTOP_PORT)
     ap.add_argument("--dashboard-port", type=int, default=config.DASHBOARD_PORT)
     args = ap.parse_args()
@@ -33,7 +35,8 @@ def main() -> None:
     server = serve(service, port=args.port)
     pi = PiClient(args.pi, fake=args.fake_imu)
     pi.start()
-    dashboard = build_dashboard(pi, "0.0.0.0", args.dashboard_port)
+    pipeline = make_pipeline(args, pi, service.history)
+    dashboard = build_dashboard(pi, "0.0.0.0", args.dashboard_port, pipeline)
     threading.Thread(target=dashboard.serve_forever, daemon=True).start()
     print(f"[laptop] Dashboard http://localhost:{args.dashboard_port}/ ({'fake IMU' if args.fake_imu else 'Pi IMU'})")
     print(f"[laptop] GET http://0.0.0.0:{args.port}/gps/current ({'fake route' if args.fake else 'OS location'})")

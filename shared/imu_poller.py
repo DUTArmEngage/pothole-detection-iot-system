@@ -65,6 +65,16 @@ class ImuPoller:
                 self._newest = parse_ts(fresh[-1].ts)
             return len(fresh)
 
+    def between(self, t0: float, t1: float) -> List[ImuSample]:
+        """Held samples with t0 <= ts <= t1 (epoch seconds), oldest first."""
+        with self._lock:
+            hist = list(self._history)
+        return [s for s in hist if t0 <= parse_ts(s.ts).timestamp() <= t1]
+
+    def newest_epoch(self) -> Optional[float]:
+        with self._lock:
+            return self._newest.timestamp() if self._newest else None
+
     def snapshot(self, seconds: float = 5.0) -> dict:
         with self._lock:
             hist = list(self._history)

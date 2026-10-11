@@ -1,2 +1,4 @@
-# Epic 1 (GPS service) uses the standard library only.
-# Later epics add opencv-python and ultralytics for detection and the Dashboard.
+opencv-python>=4.8
+ultralytics>=8.3
+numpy>=1.24
+# GPS service, Dashboard and IMU polling use the standard library only.

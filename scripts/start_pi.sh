@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch the Pi services from the repo root: the IMU server and the Dashscreen.
+# Launch the Pi services from the repo root: motion (webcam stream), the IMU server and the Dashscreen.
 # Set LAPTOP_HOST to the laptop's address. Pass --fake to use a simulated IMU.
 set -e
 cd "$(dirname "$0")/.."
@@ -10,6 +10,12 @@ IMU_ARGS=()
 
 python3 -m rpi.server.main "${IMU_ARGS[@]}" &
 IMU_PID=$!
-trap 'kill $IMU_PID 2>/dev/null' EXIT
+if command -v motion >/dev/null; then
+  motion -n -c rpi/motion.conf &
+  MOTION_PID=$!
+else
+  echo "motion not installed (sudo apt install motion); video stream disabled" >&2
+fi
+trap 'kill $IMU_PID $MOTION_PID 2>/dev/null' EXIT
 sleep 1
 python3 -m rpi.dashscreen.main
