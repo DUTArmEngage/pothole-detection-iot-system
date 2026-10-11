@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, List, Optional
 
@@ -84,8 +85,15 @@ def make_handler(pi: PiClient, pipeline: Optional[DetectionPipeline] = None, gps
     return Handler
 
 
+class _QuietServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        # A browser closing a tab or aborting a poll is normal; only report real faults.
+        if not isinstance(sys.exc_info()[1], ConnectionError):
+            super().handle_error(request, client_address)
+
+
 def build_server(pi: PiClient, host: str, port: int, pipeline: Optional[DetectionPipeline] = None,
                  gps_history: Optional[Callable[[], List[GpsFix]]] = None) -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer((host, port), make_handler(pi, pipeline, gps_history))
+    server = _QuietServer((host, port), make_handler(pi, pipeline, gps_history))
     server.daemon_threads = True  # open video streams must not block shutdown
     return server
