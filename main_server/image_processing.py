@@ -201,6 +201,7 @@ class DetectionPipeline:
         self._seq = 0
         self._recent: Deque[Detection] = deque(maxlen=recent)
         self.events = EventLog()
+        self._out_times: Deque[float] = deque()
         self._stop = threading.Event()
         self.fps = 0.0
         self.latency_ms = 0.0
@@ -251,8 +252,10 @@ class DetectionPipeline:
     def _publish(self, dets: List[Detection], image: np.ndarray) -> None:
         ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 80])
         now = time.perf_counter()
-        self.fps = 0.9 * self.fps + 0.1 / max(now - self._last_out, 1e-6)
-        self._last_out = now
+        self._out_times.append(now)
+        while self._out_times and now - self._out_times[0] > 2.0:
+            self._out_times.popleft()
+        self.fps = len(self._out_times) / 2.0  # frames published in the last 2 s
         with self._lock:
             if ok:
                 self._jpeg, self._seq = buf.tobytes(), self._seq + 1
@@ -264,7 +267,6 @@ class DetectionPipeline:
         # Inference runs on every frame straight away. Only the grading step waits for IMU
         # samples to cover the frame's impact window, so waiting never limits throughput.
         pending: Deque[Tuple[Frame, List[RawDetection], float]] = deque()
-        self._last_out = time.perf_counter()
         while not self._stop.is_set():
             frame = self.frames.next(timeout=0.05 if pending else 1.0)
             if frame is not None:
