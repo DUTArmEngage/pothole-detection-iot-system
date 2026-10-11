@@ -1,0 +1,2 @@
+# Epic 1 (GPS client + Dashscreen) uses the standard library only.
+# Later epics add smbus2 for the MPU-6050 IMU.
