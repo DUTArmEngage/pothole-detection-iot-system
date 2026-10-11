@@ -64,11 +64,15 @@ class GpsService:
             return list(self._history)
 
     def run(self) -> None:
+        last_error = None
         while not self._stop.is_set():
             try:
                 self.sample_once()
+                last_error = None
             except Exception as exc:  # a failed read must not kill the service
-                print(f"[gps] source error: {exc}")
+                if str(exc) != last_error:  # print each distinct error once
+                    print(f"[gps] source error: {exc}")
+                last_error = str(exc)
             self._stop.wait(config.GPS_POLL_S)
 
     def stop(self) -> None:

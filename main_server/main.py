@@ -14,15 +14,24 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=config.LAPTOP_PORT)
     args = ap.parse_args()
 
-    if not args.fake:
-        raise SystemExit("Real OS location source is not implemented yet; run with --fake.")
-    service = GpsService(FakeRoute(speed_kmh=args.speed_kmh).read)
+    source = None
+    if args.fake:
+        read = FakeRoute(speed_kmh=args.speed_kmh).read
+    else:
+        from main_server.location import WindowsLocationSource
+
+        source = WindowsLocationSource()
+        read = source.read
+    service = GpsService(read)
     server = serve(service, port=args.port)
-    print(f"[laptop] GET http://0.0.0.0:{args.port}/gps/current (fake route)")
+    print(f"[laptop] GET http://0.0.0.0:{args.port}/gps/current ({'fake route' if args.fake else 'OS location'})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         service.stop()
+    finally:
+        if source:
+            source.close()
 
 
 if __name__ == "__main__":
