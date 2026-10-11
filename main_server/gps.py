@@ -37,9 +37,20 @@ def derive_motion(prev: GpsFix, cur: GpsFix) -> Tuple[Optional[float], Optional[
     return dist / dt * 3.6, heading
 
 
+def distance_m(a: GpsFix, b: GpsFix) -> float:
+    p1, p2 = math.radians(a.lat), math.radians(b.lat)
+    dl = math.radians(b.lon - a.lon)
+    h = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * 6371000.0 * math.asin(math.sqrt(h))
+
+
 class GpsService:
-    def __init__(self, source: FixSource, history: int = 120):
+    def __init__(self, source: FixSource, history: int = 120, steady: bool = False):
+        """`steady` holds the position still while new fixes stay within the OS-reported accuracy
+        (use it for the real location source, whose fixes jitter by metres even when parked)."""
         self._source = source
+        self._steady = steady
+        self._anchor: Optional[list] = None  # running mean state, see _hold
         self._history: Deque[GpsFix] = deque(maxlen=history)
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -47,13 +58,42 @@ class GpsService:
     def sample_once(self) -> GpsFix:
         fix = GpsFix.from_dict(self._source())
         with self._lock:
+            held = False
+            if self._steady:
+                fix, held = self._hold(fix)
             if self._history:
                 prev = self._history[-1]
                 fix.speed_kmh, fix.heading = derive_motion(prev, fix)
+                if held:  # inside the noise radius: parked. The settling average creeps, that is not driving
+                    fix.speed_kmh = 0.0
                 if fix.heading is None:  # stationary: keep the last known heading
                     fix.heading = prev.heading
             self._history.append(fix)
         return fix
+
+    def _hold(self, fix: GpsFix) -> Tuple[GpsFix, bool]:
+        """Hold a parked laptop's position still; follow it once it really moves.
+
+        While new fixes stay within the noise radius of the held position, they are folded into an
+        accuracy-weighted running mean (weight 1/accuracy^2). The mean moves less with every sample,
+        so a stationary laptop settles instead of wandering. The noise radius is the largest of the
+        two reported accuracies and STEADY_MIN_RADIUS_M; a fix beyond it is real movement, so the
+        mean restarts from that fix. Returns (fix to publish, True if it was held still).
+        """
+        acc = fix.accuracy_m if fix.accuracy_m is not None else 25.0
+        st = self._anchor  # [sum_w, sum_w*lat, sum_w*lon, best_acc] or None
+        if st is not None:
+            held = GpsFix(lat=st[1] / st[0], lon=st[2] / st[0], ts=fix.ts)
+            if distance_m(held, fix) <= max(acc, st[3], config.STEADY_MIN_RADIUS_M):
+                w = 1.0 / (acc * acc)
+                st[0] += w
+                st[1] += w * fix.lat
+                st[2] += w * fix.lon
+                st[3] = min(st[3], acc)
+                return GpsFix(lat=st[1] / st[0], lon=st[2] / st[0], ts=fix.ts, accuracy_m=st[3]), True
+        w = 1.0 / (acc * acc)
+        self._anchor = [w, w * fix.lat, w * fix.lon, acc]  # first fix, or moved beyond the noise
+        return fix, False
 
     def current(self) -> Optional[GpsFix]:
         with self._lock:

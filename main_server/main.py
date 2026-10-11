@@ -32,7 +32,7 @@ def main() -> None:
 
         source = WindowsLocationSource()
         read = source.read
-    service = GpsService(read, history=900)
+    service = GpsService(read, history=900, steady=not args.fake)
     server = serve(service, port=args.port)
     pi = PiClient(args.pi, fake=args.fake_imu, enabled=not args.no_imu)
     pi.start()

@@ -30,3 +30,7 @@ GPS_MATCH_S = 2.0       # max |frame ts - GPS fix ts| for a detection to get lat
 # 0.80 by default; override with PIN_CONFIDENCE or --pin-confidence.
 PIN_CONFIDENCE = float(os.environ.get("PIN_CONFIDENCE", "0.80"))
 PINS_DB = os.environ.get("PINS_DB", "data/potholes.db")
+
+# Steadiness filter for the laptop's OS location: fixes closer than this (or than the reported accuracy)
+# to the held position are treated as noise, so a stationary laptop does not wander on the map.
+STEADY_MIN_RADIUS_M = float(os.environ.get("STEADY_MIN_RADIUS_M", "15"))
